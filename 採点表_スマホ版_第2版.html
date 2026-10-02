@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>採点表</title>
+<style>
+:root{--border:#d0d0d0;--bg:#f6f6f6;--text:#222;--blue:#e7f1ff;}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:#fff;color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;-webkit-tap-highlight-color:transparent}
+body{min-height:100vh;padding-bottom:calc(35px + env(safe-area-inset-bottom))}
+button,input{font:inherit}
+button{cursor:pointer}
+.app{width:100%;max-width:700px;margin:0 auto}
+.hidden{display:none!important}
+
+/* 共通 */
+.header{height:52px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:center;position:relative;background:#fff}
+.header h1{font-size:19px;margin:0}
+.back{position:absolute;left:8px;border:0;background:none;font-size:27px;padding:5px 12px}
+.primary{border:0;border-radius:8px;background:#222;color:#fff;padding:11px 18px;font-size:16px}
+.secondary{border:1px solid #aaa;border-radius:8px;background:#fff;padding:9px 16px}
+.danger{border:1px solid #d33;border-radius:8px;background:#fff;color:#c00;padding:8px 13px}
+.section{padding:14px}
+
+/* トップ */
+.home{padding:30px 20px}
+.home h1{text-align:center;font-size:28px;margin:20px 0 35px}
+.home-btn{width:100%;height:70px;margin-bottom:16px;border:1px solid #bbb;border-radius:12px;background:#fff;font-size:19px;font-weight:600}
+.home-btn:active{background:#eee}
+
+/* 採点 */
+.name-area{padding:10px 14px 7px;border-bottom:1px solid var(--border)}
+.name-label{font-size:14px;margin-right:6px}
+#name{width:calc(100% - 48px);border:0;border-bottom:1px solid #999;outline:none;font-size:18px;padding:3px 2px}
+.subject-bar{height:50px;display:grid;grid-template-columns:54px 1fr 54px;align-items:stretch;border-bottom:1px solid var(--border);background:#f2f2f2;position:sticky;top:0;z-index:10}
+.nav-btn{border:0;background:#f2f2f2;font-size:28px;touch-action:manipulation}
+.nav-btn:active{background:#ddd}
+.subject-name{display:flex;align-items:center;justify-content:center;font-size:21px;font-weight:700}
+.items{padding:4px 10px 60px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) 72px;min-height:44px;border-bottom:1px solid #ddd}
+.item-text{display:flex;align-items:center;padding:6px 8px 6px 4px;font-size:16px;line-height:1.3}
+.score{border:0;border-left:1px solid #ddd;background:#fff;font-size:25px;font-weight:600;min-height:44px;touch-action:manipulation}
+.score:active{background:#eee}
+.hint{text-align:center;color:#888;font-size:11px;padding:5px 0 0}
+.empty{text-align:center;color:#888;padding:35px 10px}
+
+/* 管理 */
+.manage-list{padding:10px 14px 70px}
+.subject-card{border:1px solid #ccc;border-radius:10px;margin-bottom:14px;overflow:hidden;background:#fff}
+.subject-title{display:flex;align-items:center;justify-content:space-between;padding:12px;background:#f5f5f5;border-bottom:1px solid #ddd}
+.subject-title strong{font-size:19px}
+.subject-actions{display:flex;gap:7px}
+.small-btn{border:1px solid #aaa;border-radius:7px;background:#fff;padding:6px 10px;font-size:13px}
+.subitems{padding:5px 10px}
+.subitem{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:9px 3px;border-bottom:1px solid #eee}
+.subitem:last-child{border-bottom:0}
+.subitem-text{font-size:15px;line-height:1.35}
+.add-item{width:100%;border:0;background:#fff;padding:12px 5px;text-align:left;color:#1769aa;font-size:14px}
+.add-subject{width:100%;margin-top:2px}
+
+/* モーダル */
+.modal-back{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{width:100%;max-width:500px;background:#fff;border-radius:12px;padding:20px}
+.modal h2{font-size:19px;margin:0 0 15px}
+.modal input{width:100%;padding:11px;border:1px solid #aaa;border-radius:7px;font-size:16px}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:18px}
+
+@media(max-height:700px){
+ .name-area{padding-top:7px;padding-bottom:4px}
+ .subject-bar{height:45px}
+ .item{min-height:38px}
+ .item-text{font-size:14px;padding-top:4px;padding-bottom:4px}
+ .score{min-height:38px;font-size:22px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- トップ -->
+<section id="homePage">
+  <div class="home">
+    <h1>採点表</h1>
+    <button class="home-btn" onclick="showPage('scorePage')">採点を開始</button>
+    <button class="home-btn" onclick="showPage('managePage')">科目を管理</button>
+  </div>
+</section>
+
+<!-- 採点ページ -->
+<section id="scorePage" class="hidden">
+  <div class="header">
+    <button class="back" onclick="showPage('homePage')">‹</button>
+    <h1>採点</h1>
+  </div>
+  <div class="name-area">
+    <span class="name-label">氏名</span>
+    <input id="name" type="text" placeholder="氏名を入力">
+  </div>
+  <div class="subject-bar">
+    <button class="nav-btn" onclick="changeSubject(-1)">‹</button>
+    <div class="subject-name" id="subjectName"></div>
+    <button class="nav-btn" onclick="changeSubject(1)">›</button>
+  </div>
+  <main class="items" id="items"></main>
+  <div class="hint">評価欄をタップ：空欄 → ○ → △ → × → 空欄</div>
+</section>
+
+<!-- 科目管理ページ -->
+<section id="managePage" class="hidden">
+  <div class="header">
+    <button class="back" onclick="showPage('homePage')">‹</button>
+    <h1>科目管理</h1>
+  </div>
+  <div class="manage-list" id="manageList"></div>
+</section>
+
+<!-- 入力モーダル -->
+<div id="modalBack" class="modal-back hidden">
+  <div class="modal">
+    <h2 id="modalTitle"></h2>
+    <input id="modalInput" type="text">
+    <div class="modal-actions">
+      <button class="secondary" onclick="closeModal()">キャンセル</button>
+      <button class="primary" onclick="confirmModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const DEFAULT_DATA=[
+ {id:"A",items:[
+  {id:"a1",text:"両足でしっかり踏み切ることができる"},
+  {id:"a2",text:"着地時にバランスを保つことができる"},
+  {id:"a3",text:"指示を聞いて動くことができる"},
+  {id:"a4",text:"最後まで諦めずに取り組むことができる"},
+  {id:"a5",text:"スタートの合図ですぐに動き出すことができる"},
+  {id:"a6",text:"一つ一つの動作を丁寧に行うことができる"}
+ ]},
+ {id:"B",items:[
+  {id:"b1",text:"ボールを正しいフォームで投げることができる"},
+  {id:"b2",text:"相手を見てボールを投げることができる"},
+  {id:"b3",text:"狙った方向へボールを投げることができる"},
+  {id:"b4",text:"ボールをしっかり受けることができる"},
+  {id:"b5",text:"周囲を見ながら動くことができる"}
+ ]},
+ {id:"C",items:[
+  {id:"c1",text:"合図を聞いて素早く動くことができる"},
+  {id:"c2",text:"順番を守って行動することができる"},
+  {id:"c3",text:"待っている間も姿勢を保つことができる"},
+  {id:"c4",text:"周囲を気にせず集中して取り組むことができる"},
+  {id:"c5",text:"最後まで積極的に取り組むことができる"},
+  {id:"c6",text:"挨拶を相手の方を見て行うことができる"}
+ ]}
+];
+
+let data;
+try{
+ data=JSON.parse(localStorage.getItem("score-demo-data"))||DEFAULT_DATA;
+}catch(e){data=DEFAULT_DATA}
+let current=0;
+const marks=["","○","△","×"];
+let modalAction=null;
+
+function saveData(){localStorage.setItem("score-demo-data",JSON.stringify(data))}
+function showPage(id){
+ document.querySelectorAll("section").forEach(s=>s.classList.add("hidden"));
+ document.getElementById(id).classList.remove("hidden");
+ if(id==="scorePage") renderScore();
+ if(id==="managePage") renderManage();
+ window.scrollTo(0,0);
+}
+function renderScore(){
+ if(!data.length){
+  document.getElementById("subjectName").textContent="";
+  document.getElementById("items").innerHTML='<div class="empty">科目がありません。<br>「科目を管理」から追加してください。</div>';
+  return;
+ }
+ if(current>=data.length)current=data.length-1;
+ const subject=data[current];
+ document.getElementById("subjectName").textContent=subject.id;
+ const scores=loadScores(subject.id);
+ const container=document.getElementById("items");
+ container.innerHTML="";
+ if(!subject.items.length){
+  container.innerHTML='<div class="empty">小項目がありません。<br>「科目を管理」から追加してください。</div>';
+  return;
+ }
+ subject.items.forEach((item,i)=>{
+  const row=document.createElement("div");
+  row.className="item";
+  const text=document.createElement("div");
+  text.className="item-text";
+  text.textContent=item.text;
+  const btn=document.createElement("button");
+  btn.className="score";
+  btn.textContent=scores[item.id]||"";
+  btn.onclick=()=>{
+   const now=scores[item.id]||"";
+   scores[item.id]=marks[(marks.indexOf(now)+1)%marks.length];
+   saveScores(subject.id,scores);
+   btn.textContent=scores[item.id];
+  };
+  row.append(text,btn);
+  container.appendChild(row);
+ });
+}
+function changeSubject(n){
+ if(!data.length)return;
+ current=(current+n+data.length)%data.length;
+ renderScore();
+}
+function scoreKey(subjectId){return "score-demo-results-"+subjectId}
+function loadScores(subjectId){
+ try{return JSON.parse(localStorage.getItem(scoreKey(subjectId)))||{}}catch(e){return{}}
+}
+function saveScores(subjectId,scores){
+ localStorage.setItem(scoreKey(subjectId),JSON.stringify(scores));
+}
+
+function renderManage(){
+ const list=document.getElementById("manageList");
+ list.innerHTML="";
+ data.forEach((subject,si)=>{
+  const card=document.createElement("div");
+  card.className="subject-card";
+  const title=document.createElement("div");
+  title.className="subject-title";
+  const strong=document.createElement("strong");
+  strong.textContent="科目 "+subject.id;
+  const actions=document.createElement("div");
+  actions.className="subject-actions";
+  const edit=document.createElement("button");
+  edit.className="small-btn";
+  edit.textContent="科目名を編集";
+  edit.onclick=()=>openModal("科目名を編集",subject.id,v=>{
+    const old=subject.id;
+    subject.id=v.trim()||old;
+    // 採点結果は旧科目IDをそのまま残すため、既存結果を移行
+    const oldKey=scoreKey(old), newKey=scoreKey(subject.id);
+    if(old!==subject.id){
+      const oldResult=localStorage.getItem(oldKey);
+      if(oldResult)localStorage.setItem(newKey,oldResult);
+      localStorage.removeItem(oldKey);
+    }
+    saveData(); renderManage(); renderScore();
+  });
+  const del=document.createElement("button");
+  del.className="danger";
+  del.textContent="削除";
+  del.onclick=()=>{
+   if(confirm("科目「"+subject.id+"」を削除しますか？")) {
+    localStorage.removeItem(scoreKey(subject.id));
+    data.splice(si,1);
+    if(current>=data.length)current=Math.max(0,data.length-1);
+    saveData(); renderManage();
+   }
+  };
+  actions.append(edit,del);
+  title.append(strong,actions);
+  card.appendChild(title);
+
+  const sub=document.createElement("div");
+  sub.className="subitems";
+  subject.items.forEach((item,ii)=>{
+   const row=document.createElement("div");
+   row.className="subitem";
+   const t=document.createElement("div");
+   t.className="subitem-text";
+   t.textContent=item.text;
+   const itemActions=document.createElement("div");
+   itemActions.style.display="flex";
+   itemActions.style.gap="6px";
+
+   const editItem=document.createElement("button");
+   editItem.className="small-btn";
+   editItem.textContent="編集";
+   editItem.onclick=()=>openModal("小項目を編集",item.text,v=>{
+    if(v.trim())item.text=v.trim();
+    saveData();renderManage();renderScore();
+   });
+
+   const deleteItem=document.createElement("button");
+   deleteItem.className="danger";
+   deleteItem.textContent="削除";
+   deleteItem.onclick=()=>{
+    if(confirm("この小項目を削除しますか？")){
+     itemRemoval(subject, item.id);
+    }
+   };
+
+   itemActions.append(editItem,deleteItem);
+   row.append(t,itemActions);
+   sub.appendChild(row);
+  });
+  const addItem=document.createElement("button");
+  addItem.className="add-item";
+  addItem.textContent="＋ 小項目を追加";
+  addItem.onclick=()=>openModal("小項目を追加","",v=>{
+   const text=v.trim(); if(!text)return;
+   const prefix=subject.id.toLowerCase();
+   let n=subject.items.length+1;
+   let id=prefix+n;
+   while(subject.items.some(x=>x.id===id)){n++;id=prefix+n}
+   subject.items.push({id,text});
+   saveData();renderManage();renderScore();
+  });
+  sub.appendChild(addItem);
+  card.appendChild(sub);
+  list.appendChild(card);
+ });
+
+ const addSubject=document.createElement("button");
+ addSubject.className="primary add-subject";
+ addSubject.textContent="＋ 科目を追加";
+ addSubject.onclick=()=>openModal("科目を追加","",v=>{
+  const id=v.trim(); if(!id)return;
+  if(data.some(s=>s.id===id)){alert("同じ科目名があります。");return}
+  data.push({id,items:[]});
+  current=data.length-1;
+  saveData();renderManage();
+ });
+ list.appendChild(addSubject);
+}
+
+function itemRemoval(subject,itemId){
+ const index=subject.items.findIndex(x=>x.id===itemId);
+ if(index===-1)return;
+ subject.items.splice(index,1);
+ saveData();
+ renderManage();
+ renderScore();
+}
+
+function openModal(title,value,action){
+ document.getElementById("modalTitle").textContent=title;
+ const input=document.getElementById("modalInput");
+ input.value=value;
+ modalAction=action;
+ document.getElementById("modalBack").classList.remove("hidden");
+ setTimeout(()=>input.focus(),50);
+}
+function closeModal(){
+ document.getElementById("modalBack").classList.add("hidden");
+ modalAction=null;
+}
+function confirmModal(){
+ const value=document.getElementById("modalInput").value;
+ if(modalAction)modalAction(value);
+ closeModal();
+}
+document.getElementById("modalInput").addEventListener("keydown",e=>{
+ if(e.key==="Enter")confirmModal();
+});
+document.getElementById("name").value=localStorage.getItem("score-demo-name")||"";
+document.getElementById("name").addEventListener("input",e=>{
+ localStorage.setItem("score-demo-name",e.target.value);
+});
+
+// スワイプで科目切替
+let startX=null;
+document.addEventListener("touchstart",e=>{
+ if(document.getElementById("scorePage").classList.contains("hidden"))return;
+ startX=e.changedTouches[0].clientX;
+},{passive:true});
+document.addEventListener("touchend",e=>{
+ if(startX===null)return;
+ const dx=e.changedTouches[0].clientX-startX;
+ startX=null;
+ if(Math.abs(dx)<60)return;
+ changeSubject(dx<0?1:-1);
+},{passive:true});
+
+renderScore();
+</script>
+</body>
+</html>
