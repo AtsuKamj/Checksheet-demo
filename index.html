@@ -44,6 +44,8 @@ button{cursor:pointer}
 .item-text{display:flex;align-items:center;padding:6px 8px 6px 4px;font-size:16px;line-height:1.3}
 .score{border:0;border-left:1px solid #ddd;background:#fff;font-size:25px;font-weight:600;min-height:44px;touch-action:manipulation}
 .score:active{background:#eee}
+.score-clear-area{text-align:center;padding:12px 10px 4px}
+.score-clear-btn{font-size:14px;color:#333}
 .hint{text-align:center;color:#888;font-size:11px;padding:5px 0 0}
 .empty{text-align:center;color:#888;padding:35px 10px}
 
@@ -51,7 +53,7 @@ button{cursor:pointer}
 .manage-list{padding:10px 14px 70px}
 .subject-card{border:1px solid #ccc;border-radius:10px;margin-bottom:14px;overflow:hidden;background:#fff}
 .subject-title{display:flex;align-items:center;justify-content:space-between;padding:12px;background:#f5f5f5;border-bottom:1px solid #ddd}
-.subject-title strong{font-size:19px}
+.subject-title strong{font-size:19px;flex:1;outline:none;cursor:text}
 .subject-actions{display:flex;gap:7px}
 .small-btn{border:1px solid #aaa;border-radius:7px;background:#fff;padding:6px 10px;font-size:13px}
 .subitems{padding:5px 10px}
@@ -105,6 +107,13 @@ button{cursor:pointer}
     <button class="nav-btn" onclick="changeSubject(1)">›</button>
   </div>
   <main class="items" id="items"></main>
+  
+  <div class="score-clear-area">
+  <button class="secondary score-clear-btn" onclick="clearCurrentScores()">
+    評価をすべてクリア
+  </button>
+  </div>
+  
   <div class="hint">評価欄をタップ：空欄 → ○ → △ → × → 空欄</div>
 </section>
 
@@ -214,6 +223,15 @@ function changeSubject(n){
  current=(current+n+data.length)%data.length;
  renderScore();
 }
+function clearCurrentScores(){
+  if(!data.length)return;
+
+  const subject=data[current];
+
+  localStorage.removeItem(scoreKey(subject.id));
+
+  renderScore();
+}
 function scoreKey(subjectId){return "score-demo-results-"+subjectId}
 function loadScores(subjectId){
  try{return JSON.parse(localStorage.getItem(scoreKey(subjectId)))||{}}catch(e){return{}}
@@ -231,36 +249,44 @@ function renderManage(){
   const title=document.createElement("div");
   title.className="subject-title";
   const strong=document.createElement("strong");
-  strong.textContent="科目 "+subject.id;
+  strong.textContent=subject.id;
+  strong.contentEditable="true";
+  strong.title="タップして科目名を編集";
+  strong.addEventListener("blur",()=>{
+   const old=subject.id;
+   const v=strong.textContent.trim();
+   if(!v || v===old){ strong.textContent=old; return; }
+   if(data.some((s,i)=>i!==si && s.id===v)){
+    strong.textContent=old;
+    return;
+   }
+   subject.id=v;
+   const oldKey=scoreKey(old), newKey=scoreKey(subject.id);
+   const oldResult=localStorage.getItem(oldKey);
+   if(oldResult)localStorage.setItem(newKey,oldResult);
+   localStorage.removeItem(oldKey);
+   saveData();
+   renderManage();
+   renderScore();
+  });
+  strong.addEventListener("keydown",e=>{
+   if(e.key==="Enter"){e.preventDefault();strong.blur();}
+  });
+
   const actions=document.createElement("div");
   actions.className="subject-actions";
-  const edit=document.createElement("button");
-  edit.className="small-btn";
-  edit.textContent="科目名を編集";
-  edit.onclick=()=>openModal("科目名を編集",subject.id,v=>{
-    const old=subject.id;
-    subject.id=v.trim()||old;
-    // 採点結果は旧科目IDをそのまま残すため、既存結果を移行
-    const oldKey=scoreKey(old), newKey=scoreKey(subject.id);
-    if(old!==subject.id){
-      const oldResult=localStorage.getItem(oldKey);
-      if(oldResult)localStorage.setItem(newKey,oldResult);
-      localStorage.removeItem(oldKey);
-    }
-    saveData(); renderManage(); renderScore();
-  });
   const del=document.createElement("button");
   del.className="danger";
   del.textContent="削除";
   del.onclick=()=>{
-   if(confirm("科目「"+subject.id+"」を削除しますか？")) {
-    localStorage.removeItem(scoreKey(subject.id));
-    data.splice(si,1);
-    if(current>=data.length)current=Math.max(0,data.length-1);
-    saveData(); renderManage();
-   }
+   localStorage.removeItem(scoreKey(subject.id));
+   data.splice(si,1);
+   if(current>=data.length)current=Math.max(0,data.length-1);
+   saveData();
+   renderManage();
+   renderScore();
   };
-  actions.append(edit,del);
+  actions.append(del);
   title.append(strong,actions);
   card.appendChild(title);
 
@@ -272,28 +298,27 @@ function renderManage(){
    const t=document.createElement("div");
    t.className="subitem-text";
    t.textContent=item.text;
+   t.contentEditable="true";
+   t.title="タップして小項目を編集";
+   t.addEventListener("blur",()=>{
+    const v=t.textContent.trim();
+    if(v)item.text=v;
+    else t.textContent=item.text;
+    saveData();
+    renderScore();
+   });
+   t.addEventListener("keydown",e=>{
+    if(e.key==="Enter"){e.preventDefault();t.blur();}
+   });
+
    const itemActions=document.createElement("div");
    itemActions.style.display="flex";
    itemActions.style.gap="6px";
-
-   const editItem=document.createElement("button");
-   editItem.className="small-btn";
-   editItem.textContent="編集";
-   editItem.onclick=()=>openModal("小項目を編集",item.text,v=>{
-    if(v.trim())item.text=v.trim();
-    saveData();renderManage();renderScore();
-   });
-
    const deleteItem=document.createElement("button");
    deleteItem.className="danger";
    deleteItem.textContent="削除";
-   deleteItem.onclick=()=>{
-    if(confirm("この小項目を削除しますか？")){
-     itemRemoval(subject, item.id);
-    }
-   };
-
-   itemActions.append(editItem,deleteItem);
+   deleteItem.onclick=()=>itemRemoval(subject,item.id);
+   itemActions.append(deleteItem);
    row.append(t,itemActions);
    sub.appendChild(row);
   });
@@ -326,7 +351,6 @@ function renderManage(){
  });
  list.appendChild(addSubject);
 }
-
 function itemRemoval(subject,itemId){
  const index=subject.items.findIndex(x=>x.id===itemId);
  if(index===-1)return;
