@@ -241,37 +241,37 @@ function saveScores(subjectId,scores){
 }
 
 function renderManage(){
- const list=document.getElementById("manageList");
- list.innerHTML="";
- data.forEach((subject,si)=>{
-  const card=document.createElement("div");
-  card.className="subject-card";
-  const title=document.createElement("div");
-  title.className="subject-title";
-  const strong=document.createElement("strong");
-  strong.textContent=subject.id;
-  strong.contentEditable="true";
-  strong.title="タップして科目名を編集";
-  strong.addEventListener("blur",()=>{
-   const old=subject.id;
-   const v=strong.textContent.trim();
-   if(!v || v===old){ strong.textContent=old; return; }
-   if(data.some((s,i)=>i!==si && s.id===v)){
-    strong.textContent=old;
-    return;
-   }
-   subject.id=v;
-   const oldKey=scoreKey(old), newKey=scoreKey(subject.id);
-   const oldResult=localStorage.getItem(oldKey);
-   if(oldResult)localStorage.setItem(newKey,oldResult);
-   localStorage.removeItem(oldKey);
-   saveData();
-   renderManage();
-   renderScore();
-  });
-  strong.addEventListener("keydown",e=>{
-   if(e.key==="Enter"){e.preventDefault();strong.blur();}
-  });
+   const t=document.createElement("div");
+   t.className="subitem-text";
+   t.textContent=item.text;
+   t.contentEditable="true";
+   t.title="タップして小項目を編集";
+
+   // 編集確定時に変更がある場合だけ保存
+   t.addEventListener("blur",()=>{
+    const v=t.textContent.trim();
+
+    if(!v){
+     t.textContent=item.text;
+     return;
+    }
+
+    if(v===item.text)return;
+
+    item.text=v;
+    saveData();
+    renderScore();
+   });
+
+   // Enterキーで編集を確定
+   t.addEventListener("keydown",e=>{
+    if(e.key==="Enter" && !e.isComposing){
+     e.preventDefault();
+     e.stopPropagation();
+     t.blur();
+    }
+   });
+
 
   const actions=document.createElement("div");
   actions.className="subject-actions";
