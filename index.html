@@ -107,13 +107,13 @@ button{cursor:pointer}
     <button class="nav-btn" onclick="changeSubject(1)">›</button>
   </div>
   <main class="items" id="items"></main>
-  
+
   <div class="score-clear-area">
   <button class="secondary score-clear-btn" onclick="clearCurrentScores()">
     評価をすべてクリア
   </button>
   </div>
-  
+
   <div class="hint">評価欄をタップ：空欄 → ○ → △ → × → 空欄</div>
 </section>
 
@@ -225,11 +225,8 @@ function changeSubject(n){
 }
 function clearCurrentScores(){
   if(!data.length)return;
-
   const subject=data[current];
-
   localStorage.removeItem(scoreKey(subject.id));
-
   renderScore();
 }
 function scoreKey(subjectId){return "score-demo-results-"+subjectId}
@@ -241,39 +238,42 @@ function saveScores(subjectId,scores){
 }
 
 function renderManage(){
-   const t=document.createElement("div");
-   t.className="subitem-text";
-   t.textContent=item.text;
-   t.contentEditable="true";
-   t.title="タップして小項目を編集";
-
-   // 編集確定時に変更がある場合だけ保存
-   t.addEventListener("blur",()=>{
-    const v=t.textContent.trim();
-
-    if(!v){
-     t.textContent=item.text;
-     return;
-    }
-
-    if(v===item.text)return;
-
-    item.text=v;
-    saveData();
-    renderScore();
-   });
-
-   t.addEventListener("keydown",e=>{
-  if(e.key==="Enter"){
-    // 日本語変換中は確定処理を行わない
+ const list=document.getElementById("manageList");
+ list.innerHTML="";
+ data.forEach((subject,si)=>{
+  const card=document.createElement("div");
+  card.className="subject-card";
+  const title=document.createElement("div");
+  title.className="subject-title";
+  const strong=document.createElement("strong");
+  strong.textContent=subject.id;
+  strong.contentEditable="true";
+  strong.title="タップして科目名を編集";
+  strong.addEventListener("blur",()=>{
+   const old=subject.id;
+   const v=strong.textContent.trim();
+   if(!v || v===old){ strong.textContent=old; return; }
+   if(data.some((s,i)=>i!==si && s.id===v)){
+    strong.textContent=old;
+    return;
+   }
+   subject.id=v;
+   const oldKey=scoreKey(old), newKey=scoreKey(subject.id);
+   const oldResult=localStorage.getItem(oldKey);
+   if(oldResult)localStorage.setItem(newKey,oldResult);
+   localStorage.removeItem(oldKey);
+   saveData();
+   renderManage();
+   renderScore();
+  });
+  strong.addEventListener("keydown",e=>{
+   if(e.key==="Enter"){
     if(e.isComposing || e.keyCode===229)return;
-
     e.preventDefault();
     e.stopPropagation();
-    t.blur();
-  }
-});
-
+    strong.blur();
+   }
+  });
 
   const actions=document.createElement("div");
   actions.className="subject-actions";
@@ -302,15 +302,28 @@ function renderManage(){
    t.textContent=item.text;
    t.contentEditable="true";
    t.title="タップして小項目を編集";
+
+   // 小項目の編集：日本語IMEの変換確定中はEnterで編集を終了しない
    t.addEventListener("blur",()=>{
     const v=t.textContent.trim();
-    if(v)item.text=v;
-    else t.textContent=item.text;
+    if(!v){
+     t.textContent=item.text;
+     return;
+    }
+    if(v===item.text)return;
+    item.text=v;
     saveData();
     renderScore();
    });
+
    t.addEventListener("keydown",e=>{
-    if(e.key==="Enter"){e.preventDefault();t.blur();}
+    if(e.key==="Enter"){
+     // 日本語入力の変換確定中は、編集終了処理を実行しない
+     if(e.isComposing || e.keyCode===229)return;
+     e.preventDefault();
+     e.stopPropagation();
+     t.blur();
+    }
    });
 
    const itemActions=document.createElement("div");
