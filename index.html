@@ -123,7 +123,18 @@ button{cursor:pointer}
     <button class="back" onclick="showPage('homePage')">‹</button>
     <h1>科目管理</h1>
   </div>
-  <div class="manage-list" id="manageList"></div>
+  <div class="manage-list">
+    <div class="import-panel">
+      <p><strong>テキストファイルからインポート</strong><br>
+      科目は「#科目名」、その下の行に小項目を1行ずつ記載してください。空行は無視されます。インポートすると、既存の科目・小項目・評価が置き換わります。</p>
+      <div class="import-actions">
+        <button class="secondary" type="button" onclick="document.getElementById('importFile').click()">.txt ファイルを選択</button>
+        <input class="import-file" id="importFile" type="file" accept=".txt,text/plain">
+      </div>
+      <div id="importStatus" class="import-status" aria-live="polite"></div>
+    </div>
+    <div id="manageList"></div>
+  </div>
 </section>
 
 <!-- 入力モーダル -->
@@ -366,6 +377,89 @@ function renderManage(){
  });
  list.appendChild(addSubject);
 }
+// テキストファイルから科目・小項目を一括インポート
+document.getElementById("importFile").addEventListener("change", async e=>{
+ const file=e.target.files && e.target.files[0];
+ const status=document.getElementById("importStatus");
+ status.textContent="";
+ status.className="import-status";
+ if(!file)return;
+
+ try{
+  const text=await file.text();
+  const parsed=parseImportText(text);
+  if(!parsed.ok){
+   status.textContent="インポートできませんでした。\n"+parsed.error+"\n既存データは変更されていません。";
+   status.classList.add("error");
+   return;
+  }
+
+  const summary=parsed.data.map(s=>"#"+s.id+"（小項目"+s.items.length+"件）").join("\n");
+  const message=
+   "次の内容で現在の科目・小項目をすべて置き換えます。\n\n"+
+   summary+
+   "\n\n現在の評価（○・△・×）もすべてリセットされます。\n氏名は維持されます。\n\n実行しますか？";
+  if(!window.confirm(message)){
+   status.textContent="インポートをキャンセルしました。既存データは変更されていません。";
+   e.target.value="";
+   return;
+  }
+
+  // 既存の採点結果を削除してから、新しい科目データに置き換える
+  data.forEach(subject=>localStorage.removeItem(scoreKey(subject.id)));
+  data=parsed.data;
+  current=0;
+  saveData();
+  // 削除済み・旧データの採点結果が残らないよう、既知の科目キーを整理
+  Object.keys(localStorage).forEach(key=>{
+   if(key.startsWith("score-demo-results-"))localStorage.removeItem(key);
+  });
+  renderManage();
+  renderScore();
+  status.textContent="インポートしました。科目"+data.length+"件を登録しました。";
+  status.classList.add("success");
+ }catch(err){
+  status.textContent="ファイルを読み込めませんでした。UTF-8形式のテキストファイルを確認してください。\n既存データは変更されていません。";
+  status.classList.add("error");
+ }finally{
+  e.target.value="";
+ }
+});
+
+function parseImportText(text){
+ const lines=text.replace(/^\uFEFF/,"").replace(/\r\n?/g,"\n").split("\n");
+ const subjects=[];
+ let currentSubject=null;
+
+ for(let i=0;i<lines.length;i++){
+  const raw=lines[i];
+  const line=raw.trim();
+  if(!line)continue;
+
+  if(line.startsWith("#")){
+   const id=line.slice(1).trim();
+   if(!id)return {ok:false,error:(i+1)+"行目：科目名がありません。"};
+   if(id.startsWith("#"))return {ok:false,error:(i+1)+"行目：科目名の先頭に「#」を含めることはできません。"};
+   if(subjects.some(s=>s.id===id))return {ok:false,error:(i+1)+"行目：科目名「"+id+"」が重複しています。"};
+   currentSubject={id,items:[]};
+   subjects.push(currentSubject);
+  }else{
+   if(!currentSubject){
+    return {ok:false,error:(i+1)+"行目：科目より前に小項目があります。科目は「#科目名」の形式で記載してください。"};
+   }
+   const itemText=line;
+   const prefix=currentSubject.id.toLowerCase();
+   let n=currentSubject.items.length+1;
+   let id=prefix+n;
+   while(currentSubject.items.some(item=>item.id===id)){n++;id=prefix+n;}
+   currentSubject.items.push({id,text:itemText});
+  }
+ }
+
+ if(subjects.length===0)return {ok:false,error:"科目が見つかりません。「#科目名」の形式で記載してください。"};
+ return {ok:true,data:subjects};
+}
+
 function itemRemoval(subject,itemId){
  const index=subject.items.findIndex(x=>x.id===itemId);
  if(index===-1)return;
