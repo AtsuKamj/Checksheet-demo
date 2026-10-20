@@ -394,17 +394,6 @@ document.getElementById("importFile").addEventListener("change", async e=>{
    return;
   }
 
-  const summary=parsed.data.map(s=>"#"+s.id+"（小項目"+s.items.length+"件）").join("\n");
-  const message=
-   "次の内容で現在の科目・小項目をすべて置き換えます。\n\n"+
-   summary+
-   "\n\n現在の評価（○・△・×）もすべてリセットされます。\n氏名は維持されます。\n\n実行しますか？";
-  if(!window.confirm(message)){
-   status.textContent="インポートをキャンセルしました。既存データは変更されていません。";
-   e.target.value="";
-   return;
-  }
-
   // 既存の採点結果を削除してから、新しい科目データに置き換える
   data.forEach(subject=>localStorage.removeItem(scoreKey(subject.id)));
   data=parsed.data;
